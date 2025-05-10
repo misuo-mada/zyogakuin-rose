@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <title>ミステリー</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      font-family: sans-serif;
+      background: black;
+    }
+    #game {
+      position: relative;
+      width: 100%;
+      height: 100vh;
+      overflow: hidden;
+    }
+    #sky-layer, #middle-layer, #ground-layer {
+      position: absolute;
+      height: 100%;
+      width: 10000px;
+      top: 0;
+      left: 0;
+      background-repeat: repeat-x;
+      background-size: auto 100%;
+    }
+    #sky-layer { background-image: url('background.png'); z-index: 0; }
+    #middle-layer { z-index: 1; }
+    #ground-layer { z-index: 2; }
+
+    #player {
+      width: 192px;
+      height: 256px;
+      position: absolute;
+      z-index: 3;
+    }
+    #player img {
+      width: 100%;
+      height: 100%;
+      image-rendering: pixelated;
+    }
+
+    .npc {
+      position: absolute;
+      width: 128px;
+      height: 192px;
+      bottom: 0;
+      background-size: contain;
+      background-repeat: no-repeat;
+      z-index: 3;
+    }
+
+    #message {
+      position: fixed;
+      bottom: 10px;
+      left: 10px;
+      color: white;
+      background: rgba(0, 0, 0, 0.7);
+      padding: 10px;
+      border-radius: 5px;
+      display: none;
+      z-index: 100;
+    }
+
+    #controlButtons {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      z-index: 999;
+    }
+    #controlButtons button {
+      padding: 14px 20px;
+      font-size: 18px;
+      font-weight: bold;
+      background: rgba(255, 255, 255, 0.1);
+      color: #fff;
+      border: 2px solid #fff;
+      border-radius: 12px;
+      cursor: pointer;
+      backdrop-filter: blur(6px);
+      width: 120px;
+    }
+    #controlButtons button:active {
+      background: rgba(255, 255, 255, 0.3);
+    }
+
+    @keyframes glow {
+      0%, 100% { box-shadow: 0 0 8px 4px rgba(255,255,0,0.8); }
+      50% { box-shadow: 0 0 12px 6px rgba(255,255,255,1); }
+    }
+    #searchBtn.glow {
+      animation: glow 1.2s infinite;
+      border-color: yellow;
+    }
+
+    #dialogueBox {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 160px;
+      background: rgba(0, 0, 0, 0.85);
+      color: white;
+      display: none;
+      z-index: 9999;
+      display: flex;
+      align-items: center;
+      padding: 20px;
+      box-sizing: border-box;
+      cursor: pointer;
+    }
+    #dialogueAvatar {
+      height: 100%;
+      aspect-ratio: 3 / 4;
+      object-fit: contain;
+      margin-right: 20px;
+    }
+    .textArea {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+    #dialogueName {
+      font-weight: bold;
+      margin-bottom: 8px;
+      font-size: 18px;
+    }
+    #dialogueText {
+      font-size: 20px;
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+  <div id="game">
+    <div id="sky-layer"></div>
+    <div id="middle-layer"></div>
+    <div id="ground-layer">
+      <div class="clue" style="left: 600px;"></div>
+      <div class="clue" style="left: 1200px;"></div>
+
+<!-- ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ -->
+      <div class="npc" id="npc3" style="left: 3000px; bottom: 20px; background-image: url('npc3.png'); width: 168px; height: 232px;"></div>
+      <div class="npc" id="npc5" style="left: 1600px; bottom: 20px; background-image: url('npc5.png'); width: 138px; height: 242px;"></div>
+<!-- ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ -->
+
+
+    </div>
+    <div id="player">
+      <img id="playerImg" src="sprite_frame_1.png" alt="player" />
+    </div>
+  </div>
+
+  <div id="message"></div>
+
+  <div id="dialogueBox">
+    <img id="dialogueAvatar" src="" alt="avatar" />
+    <div class="textArea">
+      <div id="dialogueName"></div>
+      <div id="dialogueText"></div>
+    </div>
+  </div>
+
+  <div id="controlButtons">
+    <button id="leftBtn">⬅ 左へ</button>
+    <button id="searchBtn">🔍 調べる</button>
+    <button id="rightBtn">右へ ➡</button>
+  </div>
+
+  <script>
+    window.addEventListener("load", () => { hideDialogue(); });
+
+    const player = document.getElementById("player");
+    const playerImg = document.getElementById("playerImg");
+    const clues = Array.from(document.querySelectorAll(".clue"));
+   
+    
+
+//  <!-- ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ -->
+
+    const npc3 = document.getElementById("npc3");
+    const npc5 = document.getElementById("npc5");
+// <!-- ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ -->
+
+
+
+    const message = document.getElementById("message");
+    const searchBtn = document.getElementById("searchBtn");
+
+    let posX = 800;
+    const keySpeed = 10;
+    const buttonSpeed = 30;
+    const minPosX = 800; // 修正点
+    const maxPosX = 6000;
+    const backgroundWidth = 10000;
+    const playerWidth = 192;
+    const playerHeight = 256;
+
+    let facing = 1;
+    let movingLeft = false;
+    let movingRight = false;
+    const walkFrames = ["walk1.png", "walk2.png", "walk3.png"];
+    let walkFrameIndex = 0;
+    let dialogueQueue = [];
+    let dialogueIndex = 0;
+
+    setInterval(() => {
+      if (movingLeft || movingRight) {
+        walkFrameIndex = (walkFrameIndex + 1) % walkFrames.length;
+        playerImg.src = walkFrames[walkFrameIndex];
+        playerImg.style.transform = `scaleX(${facing})`;
+
+        if (movingLeft) posX = Math.max(minPosX, posX - buttonSpeed);
+        if (movingRight) posX = Math.min(posX + buttonSpeed, maxPosX);
+
+        updateGameScene();
+      }
+      checkForInteractable();
+    }, 200);
+
+
+// <!-- ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ -->
+    function checkForInteractable() {
+      const nearClue = clues.some(clue => Math.abs(posX - parseInt(clue.style.left)) < 60);
+      const nearNpc3 = Math.abs(posX - parseInt(npc3.style.left)) < 80;
+      const nearNpc5 = Math.abs(posX - parseInt(npc5.style.left)) < 80;
+      searchBtn.classList.toggle("glow",   nearNpc3 || nearNpc5 );
+    }
+// <!-- ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ -->
+
+
+    function updateGameScene() {
+      const screenWidth = window.innerWidth;
+      const screenHeight = window.innerHeight;
+      const scrollX = Math.min(posX - screenWidth / 2 + playerWidth / 2, backgroundWidth - screenWidth);
+      document.getElementById("ground-layer").style.left = -scrollX + "px";
+      document.getElementById("middle-layer").style.left = -scrollX * 0.5 + "px";
+      document.getElementById("sky-layer").style.left = -scrollX * 0.2 + "px";
+      player.style.left = (screenWidth / 2 - playerWidth / 2) + "px";
+      player.style.top = (screenHeight - playerHeight) + "px";
+    }
+
+    function setPlayerImage(src) {
+      playerImg.src = src;
+      playerImg.style.transform = `scaleX(${facing})`;
+    }
+
+
+// <!-- ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ -->
+    function checkForClueOrNPC() {
+      const clue = clues.find(clue => Math.abs(posX - parseInt(clue.style.left)) < 60);
+      const nearNpc3 = Math.abs(posX - parseInt(npc3.style.left)) < 80;
+      const nearNpc5 = Math.abs(posX - parseInt(npc5.style.left)) < 80;
+// <!-- ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ -->
+
+      if (clue) {
+        showMessage("証拠を発見した！");
+        } else if (nearNpc3) {
+        showDialogueQueue([
+          { name: "一条アンナ", text: "カレンさん、なぜ、彼女がこんな目に・・・", avatar: "npc3.png" },
+          { name: "一条アンナ", text: "犯人・・・絶対に許せませんわね。", avatar: "npc3.png" }
+        ]);
+      } else if (nearNpc5) {
+        showDialogueQueue([
+          { name: "ローズ寮の女の子", text: "おはよー！ここはローズ寮のお庭だよー！", avatar: "npc5.png" },
+          { name: "ローズ寮の女の子", text: "他の寮の人が入ったら空気が汚れちゃうわ・・・", avatar: "npc5.png" }
+        ]);
+      } else {
+        showMessage("何も見つからなかった…");
+      }
+    }
+// <!-- ■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■■ -->
+
+
+    function showDialogueQueue(queue) {
+      dialogueQueue = queue;
+      dialogueIndex = 0;
+      showDialogueLine(dialogueQueue[dialogueIndex]);
+    }
+
+    function showDialogueLine(line) {
+      document.getElementById("dialogueName").textContent = line.name;
+      document.getElementById("dialogueText").textContent = `「${line.text}」`;
+      document.getElementById("dialogueAvatar").src = line.avatar;
+      document.getElementById("dialogueBox").style.display = "flex";
+    }
+
+    function hideDialogue() {
+      dialogueQueue = [];
+      dialogueIndex = 0;
+      document.getElementById("dialogueBox").style.display = "none";
+    }
+
+    document.getElementById("dialogueBox").addEventListener("click", () => {
+      dialogueIndex++;
+      if (dialogueIndex < dialogueQueue.length) {
+        showDialogueLine(dialogueQueue[dialogueIndex]);
+      } else {
+        hideDialogue();
+      }
+    });
+
+    document.getElementById("searchBtn").addEventListener("click", () => {
+      setPlayerImage("sprite_frame_3.png");
+      checkForClueOrNPC();
+      setTimeout(() => setPlayerImage("sprite_frame_1.png"), 600);
+    });
+
+    function bindButtonHold(btn, onStart, onEnd) {
+      btn.addEventListener("mousedown", onStart);
+      btn.addEventListener("touchstart", e => { e.preventDefault(); onStart(); });
+      btn.addEventListener("mouseup", onEnd);
+      btn.addEventListener("mouseleave", onEnd);
+      btn.addEventListener("touchend", onEnd);
+    }
+
+    bindButtonHold(document.getElementById("leftBtn"),
+      () => { facing = -1; movingLeft = true; },
+      () => { movingLeft = false; });
+
+    bindButtonHold(document.getElementById("rightBtn"),
+      () => { facing = 1; movingRight = true; },
+      () => { movingRight = false; });
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowRight") { facing = 1; movingRight = true; posX = Math.min(posX + keySpeed, maxPosX); }
+      if (e.key === "ArrowLeft") { facing = -1; movingLeft = true; posX = Math.max(minPosX, posX - keySpeed); }
+      updateGameScene();
+    });
+
+    document.addEventListener("keyup", (e) => {
+      if (e.key === "ArrowRight") movingRight = false;
+      if (e.key === "ArrowLeft") movingLeft = false;
+      if (!movingLeft && !movingRight) setPlayerImage("sprite_frame_1.png");
+    });
+
+    window.addEventListener("resize", updateGameScene);
+    updateGameScene();
+  </script>
+</body>
+</html>
